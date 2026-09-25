@@ -5,7 +5,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from unittest.mock import Mock, patch
 from controller import FanController
-from app import Dashboard, Frames
+from app import Dashboard, Frames, camera_detected
 from updates import Updater
 
 
@@ -77,6 +77,19 @@ class WebTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 503)
         with urlopen(self.url + '/api/status') as r:
             self.assertEqual(json.load(r)['temperature'], 45)
+
+
+class CameraDetectTests(unittest.TestCase):
+    @patch('app.subprocess.run')
+    def test_list_cameras_output(self, run):
+        run.return_value = Mock(stdout='Available cameras\n-----------------\n0 : ov5647')
+        self.assertTrue(camera_detected())
+        run.return_value = Mock(stdout='No cameras available!')
+        self.assertFalse(camera_detected())
+
+    @patch('app.subprocess.run', side_effect=FileNotFoundError)
+    def test_missing_tools(self, run):
+        self.assertFalse(camera_detected())
 
 
 class UpdateTests(unittest.TestCase):

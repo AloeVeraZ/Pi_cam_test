@@ -7,6 +7,7 @@ import logging
 import secrets
 import signal
 import socket
+import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -16,6 +17,20 @@ from controller import FanController
 from updates import Updater
 
 ROOT = Path(__file__).resolve().parent
+CAMERA_HINT = (' — Check the ribbon cable (blue side toward the USB/Ethernet ports on a Pi 4, '
+               'contacts facing the HDMI side), that it is in the CAMERA port not DISPLAY, and that '
+               'camera_auto_detect=1 is in /boot/firmware/config.txt. Power off before reseating. '
+               'The dashboard restarts itself when a camera appears.')
+
+
+def camera_detected():
+    for tool in ('rpicam-hello', 'libcamera-hello'):
+        try:
+            result = subprocess.run([tool, '--list-cameras'], capture_output=True, text=True, timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        return 'Available cameras' in result.stdout
+    return False
 
 
 class Frames(io.BufferedIOBase):
@@ -179,9 +194,21 @@ def main():
                                                                controls={'FrameRate': 20}))
             camera.start_recording(MJPEGEncoder(), FileOutput(frames))
         except Exception as exc:
-            camera_error = str(exc)
+            camera_error = str(exc) + CAMERA_HINT
             logging.exception('Camera unavailable; fan control will continue')
         server = Dashboard((args.host, args.port), controller, frames, camera_error)
+
+        def camera_watch():
+            # libcamera only enumerates cameras once per process, so check from a
+            # fresh process and let systemd restart us once a camera appears.
+            while not stop.wait(15):
+                if camera_detected():
+                    logging.info('Camera detected; restarting to start the stream')
+                    server.shutdown()
+                    return
+
+        if camera_error:
+            threading.Thread(target=camera_watch, daemon=True).start()
 
         def terminate(*_):
             raise KeyboardInterrupt
