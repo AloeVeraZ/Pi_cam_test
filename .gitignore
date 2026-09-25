@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 .venv/
 REVISION
+Pi_cam_test/
