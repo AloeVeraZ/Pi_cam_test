@@ -36,6 +36,8 @@ After=network.target
 Type=simple
 User=$OWNER
 SupplementaryGroups=video gpio
+# Lets the non-root service listen on port 80 so http://PI_IP works.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 WorkingDirectory=/opt/pi-dashboard/current
 ExecStart=/usr/bin/python3 /opt/pi-dashboard/current/app.py
 Restart=always
@@ -48,4 +50,7 @@ systemctl daemon-reload
 systemctl enable avahi-daemon pi-dashboard.service
 systemctl start avahi-daemon
 systemctl restart pi-dashboard.service
-echo "Open http://$(hostname).local:8080 on the same Wi-Fi."
+for ADDRESS in $(hostname -I); do
+  if [[ "$ADDRESS" == *.* ]]; then echo "Open http://$ADDRESS on the same Wi-Fi."; fi
+done
+echo "Or try http://$(hostname).local"

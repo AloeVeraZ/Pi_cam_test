@@ -5,7 +5,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from unittest.mock import Mock, patch
 from controller import FanController
-from app import Dashboard, Frames, camera_detected
+from app import Dashboard, Frames, camera_detected, local_addresses
 from updates import Updater
 
 
@@ -90,6 +90,11 @@ class CameraDetectTests(unittest.TestCase):
     @patch('app.subprocess.run', side_effect=FileNotFoundError)
     def test_missing_tools(self, run):
         self.assertFalse(camera_detected())
+
+    @patch('app.subprocess.run')
+    def test_local_addresses_skip_ipv6(self, run):
+        run.return_value = Mock(stdout='192.168.1.42 fd00::5 \n')
+        self.assertEqual(local_addresses(), ['192.168.1.42'])
 
 
 class UpdateCheckTests(unittest.TestCase):

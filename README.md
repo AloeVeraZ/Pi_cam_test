@@ -27,7 +27,7 @@ cd Pi_cam_test
 sudo bash install.sh "$USER" https://github.com/AloeVeraZ/Pi_cam_test.git main
 ```
 
-Open **http://raspberrypi.local:8080** from a phone or computer on the same Wi-Fi (replace `raspberrypi` with your Pi hostname). If `.local` does not resolve, run `hostname -I` on the Pi and use `http://PI_IP:8080`. Guest-network client isolation may block access. The installer enables automatic startup at boot; it does not configure Wi-Fi or router port forwarding.
+The installer prints the address to open, e.g. **http://192.168.1.42** (the IP your router gave the Pi on Wi-Fi). Type it into a browser on any phone or computer on the same Wi-Fi; no port number is needed. To find it later, run `hostname -I` on the Pi. `http://raspberrypi.local` (your hostname) and the old `:8080` address also work. Guest-network client isolation may block access. The installer enables automatic startup at boot; it does not configure Wi-Fi or router port forwarding.
 
 ## Cooling
 
@@ -67,6 +67,8 @@ ssh -L 8080:localhost:8080 YOUR_PI_USER@raspberrypi.local
 Then browse to `http://localhost:8080`. Do not expose port 8080 to the internet.
 
 ## Troubleshooting and tests
+
+If you can SSH in but the page does not load, check `systemctl status pi-dashboard` and try `http://PI_IP:8080`.
 
 ```bash
 systemctl status pi-dashboard

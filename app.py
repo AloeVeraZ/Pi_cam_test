@@ -23,6 +23,15 @@ CAMERA_HINT = (' — Check the ribbon cable (blue side toward the USB/Ethernet p
                'The dashboard restarts itself when a camera appears.')
 
 
+def local_addresses():
+    """The Pi's LAN IPv4 addresses, e.g. the one Wi-Fi gave it."""
+    try:
+        return [a for a in subprocess.run(['hostname', '-I'], capture_output=True, text=True,
+                                          timeout=5).stdout.split() if '.' in a] or [socket.gethostname() + '.local']
+    except (OSError, subprocess.SubprocessError):
+        return [socket.gethostname() + '.local']
+
+
 def camera_detected():
     for tool in ('rpicam-hello', 'libcamera-hello'):
         try:
@@ -160,6 +169,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--host', default='0.0.0.0')
     parser.add_argument('--port', type=int, default=8080)
+    parser.add_argument('--web-port', type=int, default=80,
+                        help='also serve here so http://PI_IP works without a port; 0 disables')
     parser.add_argument('--fan-pin', type=int, default=14, help='BCM numbering')
     parser.add_argument('--active-low', action='store_true')
     parser.add_argument('--on-temp', type=float, default=60)
@@ -170,7 +181,7 @@ def main():
     from gpiozero import DigitalOutputDevice
     fan = DigitalOutputDevice(args.fan_pin, active_high=not args.active_low, initial_value=True)
     stop = threading.Event()
-    camera = server = worker = None
+    camera = server = worker = web = None
     try:
         def read_temperature():
             return float(Path('/sys/class/thermal/thermal_zone0/temp').read_text()) / 1000
@@ -197,6 +208,15 @@ def main():
             camera_error = str(exc) + CAMERA_HINT
             logging.exception('Camera unavailable; fan control will continue')
         server = Dashboard((args.host, args.port), controller, frames, camera_error)
+        if args.web_port and args.web_port != args.port:
+            try:
+                web = Dashboard((args.host, args.web_port), controller, frames, camera_error)
+            except OSError as exc:
+                logging.warning('Port %s unavailable (%s); use port %s instead', args.web_port, exc, args.port)
+            else:
+                # One dashboard on two ports: same page token, same update checks.
+                web.token, web.updater = server.token, server.updater
+                threading.Thread(target=web.serve_forever, daemon=True).start()
 
         def camera_watch():
             # libcamera only enumerates cameras once per process, so check from a
@@ -223,7 +243,8 @@ def main():
             raise KeyboardInterrupt
 
         signal.signal(signal.SIGTERM, terminate)
-        logging.info('Dashboard: http://%s.local:%s', socket.gethostname(), args.port)
+        for address in local_addresses():
+            logging.info('Dashboard: http://%s%s', address, '' if web else ':%s' % args.port)
         server.serve_forever()
     except KeyboardInterrupt:
         pass
@@ -231,6 +252,9 @@ def main():
         stop.set()
         if worker:
             worker.join(timeout=3)
+        if web:
+            web.shutdown()
+            web.server_close()
         if server:
             server.server_close()
         try:
