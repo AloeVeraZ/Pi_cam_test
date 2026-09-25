@@ -50,6 +50,8 @@ Add `--active-low` only if your fan's control input requires it. Then run `sudo 
 
 ## Updates
 
+The dashboard asks GitHub for the newest commit on the configured branch every 15 minutes (and whenever you press **Check now**) and shows **Up to date**, **Update available**, or **No connection** with both commit IDs. Checks use `git ls-remote`, so nothing is downloaded until you update.
+
 Click **Update now**, enter the Pi account password when needed, and submit. This is the password used by `sudo`, not your GitHub password. An account with passwordless sudo can leave it blank. Passwords are passed to sudo through stdin and are not saved or logged. Five unsuccessful attempts cause a ten-minute cooldown within the running dashboard process.
 
 The installer saves the repository and branch in root-owned `/etc/pi-dashboard.json`. The updater fetches the latest configured branch, installs dependencies, runs tests, installs a new release, and restarts the dashboard. It runs in a separate systemd unit. The page reconnects automatically. If the new application fails its HTTP health check, the previous application release is restored. Dependency and system configuration changes are not rolled back. Previous releases remain under `/opt/pi-dashboard/releases`.

@@ -92,6 +92,50 @@ class CameraDetectTests(unittest.TestCase):
         self.assertFalse(camera_detected())
 
 
+class UpdateCheckTests(unittest.TestCase):
+    OLD, NEW = 'a' * 40, 'b' * 40
+
+    def setUp(self):
+        self.now = 0
+        self.updater = Updater(clock=lambda: self.now)
+
+    def wait(self):
+        self.updater.thread.join(timeout=5)
+
+    @patch('updates.subprocess.run')
+    def test_reports_update_available_and_up_to_date(self, run):
+        run.return_value = Mock(returncode=0, stdout=self.NEW + '\trefs/heads/main\n')
+        self.assertEqual(self.updater.check('repo', 'main', self.OLD)['update_status'], 'checking')
+        self.wait()
+        self.assertEqual(self.updater.check('repo', 'main', self.OLD)['update_status'], 'update-available')
+        self.assertEqual(self.updater.check('repo', 'main', self.NEW)['update_status'], 'up-to-date')
+        self.assertIn('ls-remote', run.call_args[0][0])
+
+    @patch('updates.subprocess.run')
+    def test_rechecks_every_interval_or_on_request(self, run):
+        run.return_value = Mock(returncode=0, stdout=self.NEW + '\trefs/heads/main\n')
+        self.updater.check('repo', 'main', self.OLD)
+        self.wait()
+        self.updater.check('repo', 'main', self.OLD)
+        self.assertEqual(run.call_count, 1)
+        self.updater.check('repo', 'main', self.OLD, refresh=True)
+        self.wait()
+        self.assertEqual(run.call_count, 2)
+        self.now += 15 * 60
+        self.updater.check('repo', 'main', self.OLD)
+        self.wait()
+        self.assertEqual(run.call_count, 3)
+
+    @patch('updates.subprocess.run')
+    def test_offline(self, run):
+        run.return_value = Mock(returncode=128, stdout='')
+        self.updater.check('repo', 'main', self.OLD)
+        self.wait()
+        state = self.updater.check('repo', 'main', self.OLD)
+        self.assertEqual(state['update_status'], 'unreachable')
+        self.assertIn('internet', state['check_error'])
+
+
 class UpdateTests(unittest.TestCase):
     @patch('updates.CONFIG')
     @patch('updates.subprocess.run')

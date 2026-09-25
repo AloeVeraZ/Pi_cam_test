@@ -88,8 +88,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(404, {'error': 'Not found'})
             else:
                 self.reply(200, file.read_bytes(), 'font/woff2' if name.endswith('.woff2') else 'text/plain')
-        elif self.path == '/api/updates':
-            self.reply(200, self.server.updater.snapshot())
+        elif self.path in ('/api/updates', '/api/updates?refresh=1'):
+            self.reply(200, self.server.updater.snapshot(refresh=self.path.endswith('refresh=1')))
         elif self.path == '/':
             page = (ROOT / 'index.html').read_text(encoding='utf-8')
             self.reply(200, page.replace('__TOKEN__', self.server.token).encode(), 'text/html; charset=utf-8')
@@ -209,6 +209,15 @@ def main():
 
         if camera_error:
             threading.Thread(target=camera_watch, daemon=True).start()
+
+        def update_watch():
+            # snapshot() starts a GitHub check whenever the last one is 15 minutes old.
+            while True:
+                server.updater.snapshot()
+                if stop.wait(60):
+                    return
+
+        threading.Thread(target=update_watch, daemon=True).start()
 
         def terminate(*_):
             raise KeyboardInterrupt
