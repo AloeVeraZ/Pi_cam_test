@@ -22,9 +22,9 @@ This assumes a Pi-compatible fan with a **3.3V-compatible control input**, such 
 ```bash
 sudo apt update
 sudo apt install -y git
-git clone https://github.com/AloeVeraZ/Raspberry-Pi-Dashboard.git
-cd Raspberry-Pi-Dashboard
-sudo bash install.sh "$USER" https://github.com/AloeVeraZ/Raspberry-Pi-Dashboard.git main
+git clone https://github.com/AloeVeraZ/Pi_cam_test.git
+cd Pi_cam_test
+sudo bash install.sh "$USER" https://github.com/AloeVeraZ/Pi_cam_test.git main
 ```
 
 Open **http://raspberrypi.local:8080** from a phone or computer on the same Wi-Fi (replace `raspberrypi` with your Pi hostname). If `.local` does not resolve, run `hostname -I` on the Pi and use `http://PI_IP:8080`. Guest-network client isolation may block access. The installer enables automatic startup at boot; it does not configure Wi-Fi or router port forwarding.
